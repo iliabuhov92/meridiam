@@ -25,7 +25,7 @@ document.getElementById('return').addEventListener('click',()=>{arrival.hidden=t
 const starCanvas=document.getElementById('stars'),ctx=starCanvas.getContext('2d');
 let starData=[],W=0,H=0,ratio=1;
 function rand(seed){let n=seed;return()=>{n=(n*16807)%2147483647;return(n-1)/2147483646;};}
-function resizeStars(){W=innerWidth;H=root.clientHeight;ratio=Math.min(devicePixelRatio||1,2);starCanvas.width=W*ratio;starCanvas.height=H*ratio;ctx.setTransform(ratio,0,0,ratio,0,0);const random=rand(9731);starData=Array.from({length:Math.round(W*H/18000)},()=>({x:random()*W,y:random()*H,r:random()>.985?1.3:random()*.65+.15,a:random()*.3+.08,phase:random()*Math.PI*2}));}
+function resizeStars(){W=root.clientWidth;H=root.clientHeight;ratio=Math.min(devicePixelRatio||1,2);starCanvas.width=W*ratio;starCanvas.height=H*ratio;ctx.setTransform(ratio,0,0,ratio,0,0);const random=rand(9731);starData=Array.from({length:Math.round(W*H/18000)},()=>({x:random()*W,y:random()*H,r:random()>.985?1.3:random()*.65+.15,a:random()*.3+.08,phase:random()*Math.PI*2}));}
 function paintStars(t){ctx.clearRect(0,0,W,H);for(const s of starData){const alpha=s.a*(.7+.3*Math.sin(t*.35+s.phase));ctx.fillStyle=`rgba(175,215,255,${alpha})`;ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();if(s.r>1){ctx.strokeStyle=`rgba(108,187,255,${alpha*.4})`;ctx.lineWidth=.5;ctx.beginPath();ctx.moveTo(s.x-5,s.y);ctx.lineTo(s.x+5,s.y);ctx.moveTo(s.x,s.y-5);ctx.lineTo(s.x,s.y+5);ctx.stroke();}}}
 resizeStars();
 let renderer;
@@ -100,8 +100,28 @@ document.querySelector('.monogram').style.visibility='hidden';
 // The smoked glass CTA replaces the former storm effect.
 
 let baseZ=3.8;
-function resize(){resizeStars();renderer.setSize(W,H);camera.aspect=W/H;const rect=planet.getBoundingClientRect();const diameter=rect.width*.965;const fov=2*Math.atan(H/(diameter*3.8))*180/Math.PI;camera.fov=fov;camera.updateProjectionMatrix();group.position.y=(H/2-(rect.top+rect.height/2))*(2*3.8*Math.tan(fov*Math.PI/360)/H);}
-resize();window.addEventListener('resize',resize);document.getElementById('scene').addEventListener('webglcontextlost',()=>{document.getElementById('loading').textContent='Сцена приостановлена. Обнови страницу.';});
+function resize() {
+ resizeStars();
+ renderer.setSize(W, H);
+ camera.aspect = W / H;
+ // Both rectangles use viewport coordinates. Their difference stays local
+ // to the scene when the document is scrolled or pinch-zoomed.
+ const sceneRect = root.getBoundingClientRect();
+ const planetRect = planet.getBoundingClientRect();
+ const diameter = planetRect.width * .965;
+ const viewHeight = H / diameter;
+ camera.fov = 2 * Math.atan(viewHeight / 3.8) * 180 / Math.PI;
+ camera.updateProjectionMatrix();
+ const unitsPerPixel = 2 * viewHeight / H;
+ group.position.x = (planetRect.left - sceneRect.left + planetRect.width / 2 - W / 2) * unitsPerPixel;
+ group.position.y = (H / 2 - (planetRect.top - sceneRect.top + planetRect.height / 2)) * unitsPerPixel;
+}
+resize();
+window.addEventListener('resize', resize);
+const layoutObserver = new ResizeObserver(resize);
+layoutObserver.observe(root);
+layoutObserver.observe(planet);
+document.getElementById('scene').addEventListener('webglcontextlost',()=>{document.getElementById('loading').textContent='Сцена приостановлена. Обнови страницу.';});
 // Advance only while visible and loaded, preserving the approved opening pose.
 let elapsed=0,previous=null,last=0;
 document.addEventListener('visibilitychange',()=>{previous=null;});
